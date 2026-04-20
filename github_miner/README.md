@@ -32,8 +32,18 @@ python collect_repos.py
 # Evan's machine:
 python collect_issues.py --researcher evan
 
+# and then (after colect_issues) 
+
+python collect_commits.py --researcher evan
+
+
 # Stefan's machine:
 python collect_issues.py --researcher stefan
+
+# then
+
+python collect_commits.py --researcher stefan
+
 ```
 
 3. Share files and merge into one dataset using `merge_shards.py`
