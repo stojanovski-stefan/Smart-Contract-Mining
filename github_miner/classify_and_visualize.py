@@ -359,9 +359,114 @@ def _plot_fix_scope_file_types(commits):
     fig.savefig(out, dpi=150)
     plt.close(fig)
     logger.info(f"Saved {out}")
-def _plot_issue_fix_heatmap(issues, commits): pass
-def _plot_resolution_time_boxplot(issues): pass
-def _plot_keyword_frequency(issues): pass
+def _plot_issue_fix_heatmap(issues, commits):
+    # Build a lookup: (repo_full_name, issue_number) → issue_type
+    issue_type_lookup = {
+        (i["repo_full_name"], i["issue_number"]): i["issue_type"]
+        for i in issues
+    }
+
+    rows = []
+    for commit in commits:
+        key = (commit["repo_full_name"], commit["issue_number"])
+        issue_type = issue_type_lookup.get(key, "unknown")
+        rows.append({"issue_type": issue_type, "fix_type": commit["fix_type"]})
+
+    df = pd.DataFrame(rows)
+    if df.empty:
+        logger.warning("No data for issue_fix_heatmap")
+        return
+
+    pivot = df.groupby(["issue_type", "fix_type"]).size().unstack(fill_value=0)
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.heatmap(pivot, annot=True, fmt="d", cmap="YlOrRd", linewidths=0.5, ax=ax)
+    ax.set_title("Issue Type × Fix Type Co-occurrence")
+    ax.set_xlabel("Fix Type")
+    ax.set_ylabel("Issue Type")
+    plt.tight_layout()
+    out = os.path.join(FIGURES_DIR, "issue_fix_heatmap.png")
+    fig.savefig(out, dpi=150)
+    plt.close(fig)
+    logger.info(f"Saved {out}")
+
+
+def _plot_resolution_time_boxplot(issues):
+    rows = []
+    for issue in issues:
+        if issue.get("state") != "closed":
+            continue
+        created = issue.get("created_at", "")
+        closed  = issue.get("closed_at",  "")
+        if not created or not closed:
+            continue
+        try:
+            dt_created = datetime.fromisoformat(created.replace("Z", "+00:00"))
+            dt_closed  = datetime.fromisoformat(closed.replace("Z", "+00:00"))
+            days = (dt_closed - dt_created).days
+            if days >= 0:
+                rows.append({"issue_type": issue["issue_type"], "days_open": days})
+        except ValueError:
+            continue
+
+    df = pd.DataFrame(rows)
+    if df.empty:
+        logger.warning("No resolution time data")
+        return
+
+    # Order categories by median resolution time for readability
+    order = df.groupby("issue_type")["days_open"].median().sort_values().index.tolist()
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.boxplot(data=df, x="days_open", y="issue_type", order=order,
+                palette="muted", ax=ax, showfliers=False)
+    ax.set_xlabel("Days Open (outliers hidden)")
+    ax.set_ylabel("Issue Type")
+    ax.set_title("Resolution Time by Issue Type (Closed Issues)")
+    plt.tight_layout()
+    out = os.path.join(FIGURES_DIR, "resolution_time_boxplot.png")
+    fig.savefig(out, dpi=150)
+    plt.close(fig)
+    logger.info(f"Saved {out}")
+
+
+def _plot_keyword_frequency(issues):
+    kw_counter    = Counter()
+    label_counter = Counter()
+
+    for issue in issues:
+        for kw in issue.get("matched_keywords", []):
+            kw_counter[kw] += 1
+        for label in issue.get("labels", []):
+            label_counter[label.lower()] += 1
+
+    # Top 10 keywords + top 10 labels, labeled with source
+    top_kws    = [(f"kw: {k}", v) for k, v in kw_counter.most_common(10)]
+    top_labels = [(f"label: {k}", v) for k, v in label_counter.most_common(10)]
+    combined   = sorted(top_kws + top_labels, key=lambda x: x[1])
+    labels, values = zip(*combined)
+
+    colors = ["#5b9bd5" if l.startswith("kw:") else "#ed7d31" for l in labels]
+
+    fig, ax = plt.subplots(figsize=(9, 8))
+    bars = ax.barh(labels, values, color=colors)
+    ax.set_xlabel("Frequency")
+    ax.set_title("Top 10 Matched Keywords vs. Top 10 GitHub Labels")
+
+    # Legend
+    from matplotlib.patches import Patch
+    legend_elements = [Patch(facecolor="#5b9bd5", label="Matched keyword"),
+                       Patch(facecolor="#ed7d31", label="GitHub label")]
+    ax.legend(handles=legend_elements, loc="lower right")
+
+    for bar, val in zip(bars, values):
+        ax.text(bar.get_width() + 5, bar.get_y() + bar.get_height() / 2,
+                str(val), va="center", fontsize=9)
+    plt.tight_layout()
+    out = os.path.join(FIGURES_DIR, "keyword_frequency.png")
+    fig.savefig(out, dpi=150)
+    plt.close(fig)
+    logger.info(f"Saved {out}")
 
 
 def main():
