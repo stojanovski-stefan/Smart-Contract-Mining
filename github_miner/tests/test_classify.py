@@ -184,7 +184,7 @@ def test_fix_scope_mixed():
     assert fix_scope == "mixed"
 
 def test_fix_scope_infrastructure():
-    commit = {"commit_message": "update config", "files_changed": ["hardhat.config.js", "package.json", ".github/ci.yml"]}
+    commit = {"commit_message": "update config", "files_changed": ["hardhat.config.json", "package.json", ".github/ci.yml"]}
     _, fix_scope = classify_commit(commit)
     assert fix_scope == "infrastructure"
 

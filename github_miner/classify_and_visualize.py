@@ -154,13 +154,14 @@ def _classify_fix_scope(files_changed):
             f.endswith(".test.ts") or f.endswith(".test.js")
             or f.endswith(".spec.ts") or f.endswith(".spec.js")
             or "/test/" in f or "/tests/" in f or "/spec/" in f
+            or f.startswith("test/") or f.startswith("tests/") or f.startswith("spec/")
         )
 
     def is_doc(f):
         return f.endswith(".md") or f.endswith(".txt")
 
     def is_infra(f):
-        return any(f.endswith(ext) for ext in [".json", ".yaml", ".yml", ".sh", ".tf", ".toml", ".js", ".ts"])
+        return any(f.endswith(ext) for ext in [".json", ".yaml", ".yml", ".sh", ".tf", ".toml"])
 
     sols  = [f for f in files_changed if is_sol(f)]
     tests = [f for f in files_changed if is_test(f)]
