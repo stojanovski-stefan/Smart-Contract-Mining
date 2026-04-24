@@ -119,15 +119,78 @@ def classify_issue(issue):
 
 
 def _classify_fix_type(message):
-    pass
+    """
+    Classify a commit by fix type using keyword matching on the commit message.
+    security_patch is checked first to avoid being subsumed by bug_fix.
+    """
+    text = message.lower()
+    rules = [
+        ("security_patch", ["fix vulnerability", "security fix", "patch", "exploit", "reentrancy", "overflow"]),
+        ("bug_fix",        ["fix", "bug", "resolve", "correct", "repair", "closes", "resolves"]),
+        ("test",           ["test", "spec", "coverage", "assert", "unit test"]),
+        ("refactor",       ["refactor", "clean up", "restructure", "rename", "simplify", "reorganize"]),
+        ("feature",        ["add", "implement", "support", "introduce", "new feature"]),
+        ("docs",           ["docs", "readme", "comment", "changelog", "documentation"]),
+    ]
+    for fix_type, keywords in rules:
+        if any(kw in text for kw in keywords):
+            return fix_type
+    return "other"
 
 
 def _classify_fix_scope(files_changed):
-    pass
+    """
+    Classify commit scope from the list of changed file paths.
+    Fully deterministic — no NLP required.
+    """
+    if not files_changed:
+        return "other"
+
+    def is_sol(f):
+        return f.endswith(".sol")
+
+    def is_test(f):
+        return (
+            f.endswith(".test.ts") or f.endswith(".test.js")
+            or f.endswith(".spec.ts") or f.endswith(".spec.js")
+            or "/test/" in f or "/tests/" in f or "/spec/" in f
+        )
+
+    def is_doc(f):
+        return f.endswith(".md") or f.endswith(".txt")
+
+    def is_infra(f):
+        return any(f.endswith(ext) for ext in [".json", ".yaml", ".yml", ".sh", ".tf", ".toml", ".js", ".ts"])
+
+    sols  = [f for f in files_changed if is_sol(f)]
+    tests = [f for f in files_changed if is_test(f)]
+    docs  = [f for f in files_changed if is_doc(f)]
+
+    if all(is_sol(f) for f in files_changed):
+        return "contract_only"
+    if all(is_test(f) for f in files_changed):
+        return "test_only"
+    if all(is_doc(f) for f in files_changed):
+        return "docs_only"
+    if sols and tests and all(is_sol(f) or is_test(f) for f in files_changed):
+        return "contract_and_test"
+    if sols:
+        return "mixed"
+    if all(is_infra(f) or is_doc(f) for f in files_changed):
+        return "infrastructure"
+    return "other"
 
 
 def classify_commit(commit):
-    pass
+    """
+    Classify a commit by fix type (from commit_message) and fix scope (from files_changed).
+
+    Returns:
+        (fix_type, fix_scope)
+    """
+    fix_type  = _classify_fix_type(commit.get("commit_message", ""))
+    fix_scope = _classify_fix_scope(commit.get("files_changed", []))
+    return fix_type, fix_scope
 
 
 def generate_charts(issues, commits):

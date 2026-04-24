@@ -111,3 +111,84 @@ def test_non_security_has_null_subtype():
     issue = {"title": "Add batch transfer feature", "body": "", "labels": ["enhancement"]}
     _, subtype = classify_issue(issue)
     assert subtype is None
+
+
+# --- classify_commit: fix_type ---
+
+def test_commit_security_patch():
+    commit = {"commit_message": "fix reentrancy vulnerability in withdraw", "files_changed": []}
+    fix_type, _ = classify_commit(commit)
+    assert fix_type == "security_patch"
+
+def test_commit_security_patch_takes_priority_over_bug_fix():
+    commit = {"commit_message": "fix overflow bug", "files_changed": []}
+    fix_type, _ = classify_commit(commit)
+    assert fix_type == "security_patch"
+
+def test_commit_bug_fix():
+    commit = {"commit_message": "fix incorrect balance calculation", "files_changed": []}
+    fix_type, _ = classify_commit(commit)
+    assert fix_type == "bug_fix"
+
+def test_commit_refactor():
+    commit = {"commit_message": "refactor token transfer logic", "files_changed": []}
+    fix_type, _ = classify_commit(commit)
+    assert fix_type == "refactor"
+
+def test_commit_feature():
+    commit = {"commit_message": "add batch transfer support", "files_changed": []}
+    fix_type, _ = classify_commit(commit)
+    assert fix_type == "feature"
+
+def test_commit_test():
+    commit = {"commit_message": "add unit test for withdraw", "files_changed": []}
+    fix_type, _ = classify_commit(commit)
+    assert fix_type == "test"
+
+def test_commit_docs():
+    commit = {"commit_message": "update readme with deployment instructions", "files_changed": []}
+    fix_type, _ = classify_commit(commit)
+    assert fix_type == "docs"
+
+def test_commit_other():
+    commit = {"commit_message": "bump version to 2.1.0", "files_changed": []}
+    fix_type, _ = classify_commit(commit)
+    assert fix_type == "other"
+
+
+# --- classify_commit: fix_scope ---
+
+def test_fix_scope_contract_only():
+    commit = {"commit_message": "fix bug", "files_changed": ["contracts/Token.sol", "contracts/Vault.sol"]}
+    _, fix_scope = classify_commit(commit)
+    assert fix_scope == "contract_only"
+
+def test_fix_scope_test_only():
+    commit = {"commit_message": "add tests", "files_changed": ["test/Token.test.js", "test/Vault.test.ts"]}
+    _, fix_scope = classify_commit(commit)
+    assert fix_scope == "test_only"
+
+def test_fix_scope_docs_only():
+    commit = {"commit_message": "update docs", "files_changed": ["README.md", "CHANGELOG.md"]}
+    _, fix_scope = classify_commit(commit)
+    assert fix_scope == "docs_only"
+
+def test_fix_scope_contract_and_test():
+    commit = {"commit_message": "fix and test", "files_changed": ["contracts/Token.sol", "test/Token.test.ts"]}
+    _, fix_scope = classify_commit(commit)
+    assert fix_scope == "contract_and_test"
+
+def test_fix_scope_mixed():
+    commit = {"commit_message": "fix", "files_changed": ["contracts/Token.sol", "package.json"]}
+    _, fix_scope = classify_commit(commit)
+    assert fix_scope == "mixed"
+
+def test_fix_scope_infrastructure():
+    commit = {"commit_message": "update config", "files_changed": ["hardhat.config.js", "package.json", ".github/ci.yml"]}
+    _, fix_scope = classify_commit(commit)
+    assert fix_scope == "infrastructure"
+
+def test_fix_scope_empty_files():
+    commit = {"commit_message": "fix", "files_changed": []}
+    _, fix_scope = classify_commit(commit)
+    assert fix_scope == "other"
