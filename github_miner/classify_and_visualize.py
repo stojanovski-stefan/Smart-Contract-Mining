@@ -67,18 +67,24 @@ def write_jsonl(records, filepath):
 def _classify_vuln_subtype(text):
     """
     Classify vulnerability subtype from lowercased issue text.
-    Returns one of: reentrancy, overflow, access_control, front_running, dos, other_vuln
+    Returns one of: reentrancy, overflow, access_control, front_running, dos,
+                    flash_loan, signature_replay, other_vuln
     """
     if any(kw in text for kw in ["reentrancy", "re-entrancy", "reentrant"]):
         return "reentrancy"
     if any(kw in text for kw in ["overflow", "underflow", "integer overflow"]):
         return "overflow"
-    if any(kw in text for kw in ["access control", "ownership", "onlyowner", "unauthorized", "privilege"]):
+    if any(kw in text for kw in ["access control", "ownership", "onlyowner", "unauthorized",
+                                  "privilege", "permission", "admin", "role-based", "rbac"]):
         return "access_control"
     if any(kw in text for kw in ["front-running", "frontrunning", "miner extractable", "mempool", "sandwich"]):
         return "front_running"
     if any(kw in text for kw in ["denial of service", "dos attack", "griefing", "block gas limit", "gas exhaustion"]):
         return "dos"
+    if any(kw in text for kw in ["flash loan", "flashloan", "flash-loan"]):
+        return "flash_loan"
+    if any(kw in text for kw in ["replay", "replay attack", "signature", "signed message", "ecrecover"]):
+        return "signature_replay"
     return "other_vuln"
 
 
@@ -116,20 +122,38 @@ def classify_issue(issue):
     if any("bug" in l for l in labels_lower) or any(kw in text for kw in bug_kws):
         return "bug", None
 
-    # Priority 4: feature — label or keyword
-    feature_kws = ["add support", "implement", "would like", "feature request", "introduce"]
+    # Priority 4: question — checked before deployment so "how do I deploy?" → question not deployment
+    question_kws = ["how do", "why does", "is it possible", "clarification", "how to", "what is"]
+    if any("question" in l for l in labels_lower) or any(kw in text for kw in question_kws):
+        return "question", None
+
+    # Priority 5: deployment
+    deployment_kws = ["deploy", "deployment", "migration", "migrate", "mainnet", "testnet", "launch"]
+    if any(kw in text for kw in deployment_kws):
+        return "deployment", None
+
+    # Priority 6: testing — issues about writing or running tests
+    testing_kws = ["unit test", "integration test", "test coverage", "test suite", "write test",
+                   "add test", "missing test", "test case"]
+    if any("test" in l for l in labels_lower) or any(kw in text for kw in testing_kws):
+        return "testing", None
+
+    # Priority 7: feature — label or keyword (expanded)
+    feature_kws = ["add support", "implement", "would like", "feature request", "introduce",
+                   "allow", "enable", "support", "integrate", "should be able"]
     if any("enhancement" in l for l in labels_lower) or any(kw in text for kw in feature_kws):
         return "feature", None
 
-    # Priority 5: documentation — label or keyword
+    # Priority 7: maintenance — version bumps, upgrades, removal, cleanup
+    maintenance_kws = ["upgrade", "update to", "bump", "deprecate", "remove", "clean up",
+                       "chore", "rename", "migrate to", "upgrade to"]
+    if any(kw in text for kw in maintenance_kws):
+        return "maintenance", None
+
+    # Priority 9: documentation — label or keyword
     doc_kws = ["readme", "docs", "comment", "typo", "spelling"]
     if any("doc" in l for l in labels_lower) or any(kw in text for kw in doc_kws):
         return "documentation", None
-
-    # Priority 6: question — label or keyword
-    question_kws = ["how do", "why does", "is it possible", "clarification"]
-    if any("question" in l for l in labels_lower) or any(kw in text for kw in question_kws):
-        return "question", None
 
     return "other", None
 
@@ -141,12 +165,15 @@ def _classify_fix_type(message):
     """
     text = message.lower()
     rules = [
+        ("merge",          ["merge branch", "merge pull request", "merge pull"]),
         ("security_patch", ["fix vulnerability", "security fix", "patch", "exploit", "reentrancy", "overflow"]),
         ("bug_fix",        ["fix", "bug", "resolve", "correct", "repair", "closes", "resolves"]),
         ("test",           ["test", "spec", "coverage", "assert", "unit test"]),
-        ("refactor",       ["refactor", "clean up", "restructure", "rename", "simplify", "reorganize"]),
-        ("feature",        ["add", "implement", "support", "introduce", "new feature"]),
+        ("refactor",       ["refactor", "clean up", "restructure", "rename", "simplify", "reorganize",
+                            "remove", "delete", "clean"]),
+        ("feature",        ["add", "implement", "support", "introduce", "new feature", "feat:"]),
         ("docs",           ["docs", "readme", "comment", "changelog", "documentation"]),
+        ("maintenance",    ["chore", "upgrade", "bump", "update", "version", "deprecate"]),
     ]
     for fix_type, keywords in rules:
         if any(kw in text for kw in keywords):

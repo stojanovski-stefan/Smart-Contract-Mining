@@ -150,10 +150,10 @@ def test_commit_docs():
     fix_type, _ = classify_commit(commit)
     assert fix_type == "docs"
 
-def test_commit_other():
+def test_commit_maintenance():
     commit = {"commit_message": "bump version to 2.1.0", "files_changed": []}
     fix_type, _ = classify_commit(commit)
-    assert fix_type == "other"
+    assert fix_type == "maintenance"
 
 
 # --- classify_commit: fix_scope ---
