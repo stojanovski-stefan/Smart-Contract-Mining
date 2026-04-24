@@ -41,11 +41,24 @@ os.makedirs(FIGURES_DIR, exist_ok=True)
 
 
 def load_jsonl(filepath):
-    pass
+    """Load a JSONL file into a list of dicts. Empty lines are skipped."""
+    records = []
+    if not os.path.exists(filepath):
+        logger.warning(f"File not found: {filepath}")
+        return records
+    with open(filepath, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                records.append(json.loads(line))
+    return records
 
 
 def write_jsonl(records, filepath):
-    pass
+    """Write a list of dicts as a JSONL file (one JSON object per line)."""
+    with open(filepath, "w", encoding="utf-8") as f:
+        for record in records:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
 def _classify_vuln_subtype(text):
@@ -199,7 +212,63 @@ def generate_charts(issues, commits):
 
 
 def main():
-    pass
+    # --- Load ---
+    issues  = load_jsonl(os.path.join(MERGED_DIR, "issues_merged.jsonl"))
+    commits = load_jsonl(os.path.join(MERGED_DIR, "commits_merged.jsonl"))
+    logger.info(f"Loaded {len(issues)} issues, {len(commits)} commits")
+
+    # --- Classify issues ---
+    for issue in issues:
+        issue_type, vuln_subtype = classify_issue(issue)
+        issue["issue_type"]   = issue_type
+        issue["vuln_subtype"] = vuln_subtype
+
+    # --- Classify commits ---
+    for commit in commits:
+        fix_type, fix_scope = classify_commit(commit)
+        commit["fix_type"]  = fix_type
+        commit["fix_scope"] = fix_scope
+
+    # --- Write enriched JSONL ---
+    issues_out  = os.path.join(CLASSIFIED_DIR, "issues_classified.jsonl")
+    commits_out = os.path.join(CLASSIFIED_DIR, "commits_classified.jsonl")
+    write_jsonl(issues,  issues_out)
+    write_jsonl(commits, commits_out)
+    logger.info(f"Written classified issues  → {issues_out}")
+    logger.info(f"Written classified commits → {commits_out}")
+
+    # --- Summary table ---
+    issue_type_counts  = Counter(i["issue_type"]   for i in issues)
+    vuln_subtype_counts = Counter(
+        i["vuln_subtype"] for i in issues if i["issue_type"] == "security"
+    )
+    fix_type_counts    = Counter(c["fix_type"]  for c in commits)
+    fix_scope_counts   = Counter(c["fix_scope"] for c in commits)
+
+    print("\n" + "=" * 60)
+    print("CLASSIFICATION SUMMARY")
+    print("=" * 60)
+
+    print("\nIssue Types:")
+    for label, count in sorted(issue_type_counts.items(), key=lambda x: -x[1]):
+        print(f"  {label:20s} {count:5d}")
+
+    print("\nVulnerability Subtypes (security issues only):")
+    for label, count in sorted(vuln_subtype_counts.items(), key=lambda x: -x[1]):
+        print(f"  {label:20s} {count:5d}")
+
+    print("\nFix Types:")
+    for label, count in sorted(fix_type_counts.items(), key=lambda x: -x[1]):
+        print(f"  {label:20s} {count:5d}")
+
+    print("\nFix Scopes:")
+    for label, count in sorted(fix_scope_counts.items(), key=lambda x: -x[1]):
+        print(f"  {label:20s} {count:5d}")
+
+    print("\n" + "=" * 60)
+
+    # --- Charts (implemented in later tasks) ---
+    generate_charts(issues, commits)
 
 
 if __name__ == "__main__":
