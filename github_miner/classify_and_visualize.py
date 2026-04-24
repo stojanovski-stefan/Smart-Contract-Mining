@@ -47,10 +47,13 @@ def load_jsonl(filepath):
         logger.warning(f"File not found: {filepath}")
         return records
     with open(filepath, "r", encoding="utf-8") as f:
-        for line in f:
+        for line_num, line in enumerate(f, 1):
             line = line.strip()
             if line:
-                records.append(json.loads(line))
+                try:
+                    records.append(json.loads(line))
+                except json.JSONDecodeError as e:
+                    logger.error(f"Line {line_num}: {e}. Skipping malformed record.")
     return records
 
 
