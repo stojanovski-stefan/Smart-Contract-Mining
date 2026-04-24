@@ -211,7 +211,84 @@ def classify_commit(commit):
 
 
 def generate_charts(issues, commits):
-    pass
+    logger.info("Generating charts...")
+    sns.set_theme(style="whitegrid", palette="muted")
+
+    _plot_issue_type_distribution(issues)
+    _plot_vuln_subtype_breakdown(issues)
+    _plot_fix_type_distribution(commits)
+    _plot_issues_over_time(issues)
+    _plot_fix_scope_file_types(commits)
+    _plot_issue_fix_heatmap(issues, commits)
+    _plot_resolution_time_boxplot(issues)
+    _plot_keyword_frequency(issues)
+
+    logger.info(f"All charts saved to {FIGURES_DIR}")
+
+
+def _plot_issue_type_distribution(issues):
+    counts = Counter(i["issue_type"] for i in issues)
+    labels = sorted(counts, key=lambda k: counts[k])
+    values = [counts[l] for l in labels]
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    bars = ax.barh(labels, values, color=sns.color_palette("muted", len(labels)))
+    ax.set_xlabel("Number of Issues")
+    ax.set_title("Issue Type Distribution")
+    for bar, val in zip(bars, values):
+        ax.text(bar.get_width() + 5, bar.get_y() + bar.get_height() / 2,
+                str(val), va="center", fontsize=9)
+    plt.tight_layout()
+    out = os.path.join(FIGURES_DIR, "issue_type_distribution.png")
+    fig.savefig(out, dpi=150)
+    plt.close(fig)
+    logger.info(f"Saved {out}")
+
+
+def _plot_vuln_subtype_breakdown(issues):
+    security_issues = [i for i in issues if i["issue_type"] == "security"]
+    counts = Counter(i["vuln_subtype"] for i in security_issues)
+    labels = sorted(counts, key=lambda k: counts[k])
+    values = [counts[l] for l in labels]
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    bars = ax.barh(labels, values, color=sns.color_palette("OrRd_r", len(labels)))
+    ax.set_xlabel("Number of Security Issues")
+    ax.set_title("Vulnerability Subtype Breakdown (Security Issues Only)")
+    for bar, val in zip(bars, values):
+        ax.text(bar.get_width() + 1, bar.get_y() + bar.get_height() / 2,
+                str(val), va="center", fontsize=9)
+    plt.tight_layout()
+    out = os.path.join(FIGURES_DIR, "vuln_subtype_breakdown.png")
+    fig.savefig(out, dpi=150)
+    plt.close(fig)
+    logger.info(f"Saved {out}")
+
+
+def _plot_fix_type_distribution(commits):
+    counts = Counter(c["fix_type"] for c in commits)
+    labels = sorted(counts, key=lambda k: counts[k])
+    values = [counts[l] for l in labels]
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    bars = ax.barh(labels, values, color=sns.color_palette("Blues_d", len(labels)))
+    ax.set_xlabel("Number of Commits")
+    ax.set_title("Fix Type Distribution")
+    for bar, val in zip(bars, values):
+        ax.text(bar.get_width() + 1, bar.get_y() + bar.get_height() / 2,
+                str(val), va="center", fontsize=9)
+    plt.tight_layout()
+    out = os.path.join(FIGURES_DIR, "fix_type_distribution.png")
+    fig.savefig(out, dpi=150)
+    plt.close(fig)
+    logger.info(f"Saved {out}")
+
+
+def _plot_issues_over_time(issues): pass
+def _plot_fix_scope_file_types(commits): pass
+def _plot_issue_fix_heatmap(issues, commits): pass
+def _plot_resolution_time_boxplot(issues): pass
+def _plot_keyword_frequency(issues): pass
 
 
 def main():
