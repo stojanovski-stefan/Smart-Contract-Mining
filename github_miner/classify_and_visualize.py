@@ -284,8 +284,81 @@ def _plot_fix_type_distribution(commits):
     logger.info(f"Saved {out}")
 
 
-def _plot_issues_over_time(issues): pass
-def _plot_fix_scope_file_types(commits): pass
+def _plot_issues_over_time(issues):
+    # Build a DataFrame with year-month and issue_type columns
+    rows = []
+    for issue in issues:
+        created = issue.get("created_at", "")
+        if not created:
+            continue
+        try:
+            dt = datetime.fromisoformat(created.replace("Z", "+00:00"))
+            rows.append({"month": dt.strftime("%Y-%m"), "issue_type": issue["issue_type"]})
+        except ValueError:
+            continue
+
+    df = pd.DataFrame(rows)
+    if df.empty:
+        logger.warning("No date data for issues_over_time chart")
+        return
+
+    pivot = (
+        df.groupby(["month", "issue_type"])
+        .size()
+        .unstack(fill_value=0)
+        .sort_index()
+    )
+
+    fig, ax = plt.subplots(figsize=(14, 6))
+    pivot.plot(kind="area", stacked=True, ax=ax, alpha=0.75,
+               colormap="tab10")
+    ax.set_xlabel("Month")
+    ax.set_ylabel("Number of Issues")
+    ax.set_title("Smart Contract Issues Over Time (2018–2024)")
+    # Show every 6th month label to avoid crowding
+    ticks = pivot.index.tolist()
+    ax.set_xticks(range(0, len(ticks), 6))
+    ax.set_xticklabels(ticks[::6], rotation=45, ha="right", fontsize=8)
+    ax.legend(loc="upper left", fontsize=8)
+    plt.tight_layout()
+    out = os.path.join(FIGURES_DIR, "issues_over_time.png")
+    fig.savefig(out, dpi=150)
+    plt.close(fig)
+    logger.info(f"Saved {out}")
+
+
+def _plot_fix_scope_file_types(commits):
+    # Count file extensions across all fixing commits
+    ext_counter = Counter()
+    for commit in commits:
+        for f in commit.get("files_changed", []):
+            ext = f.rsplit(".", 1)[-1].lower() if "." in f else "no_ext"
+            ext_counter[ext] += 1
+
+    # Keep top 10 extensions, group the rest as "other"
+    top_n = 10
+    top_exts = [ext for ext, _ in ext_counter.most_common(top_n)]
+    other_count = sum(count for ext, count in ext_counter.items() if ext not in top_exts)
+
+    labels = top_exts + (["other"] if other_count > 0 else [])
+    values = [ext_counter[e] for e in top_exts] + ([other_count] if other_count > 0 else [])
+
+    # Sort by value ascending for horizontal bar readability
+    paired = sorted(zip(labels, values), key=lambda x: x[1])
+    labels, values = zip(*paired)
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    bars = ax.barh(labels, values, color=sns.color_palette("Set2", len(labels)))
+    ax.set_xlabel("Total Files Changed")
+    ax.set_title("File Types Touched in Fixing Commits")
+    for bar, val in zip(bars, values):
+        ax.text(bar.get_width() + 5, bar.get_y() + bar.get_height() / 2,
+                str(val), va="center", fontsize=9)
+    plt.tight_layout()
+    out = os.path.join(FIGURES_DIR, "fix_scope_file_types.png")
+    fig.savefig(out, dpi=150)
+    plt.close(fig)
+    logger.info(f"Saved {out}")
 def _plot_issue_fix_heatmap(issues, commits): pass
 def _plot_resolution_time_boxplot(issues): pass
 def _plot_keyword_frequency(issues): pass
