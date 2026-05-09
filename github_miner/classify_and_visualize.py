@@ -118,12 +118,15 @@ def classify_issue(issue):
         return "gas", None
 
     # Priority 3: bug — label or keyword
-    bug_kws = ["doesn't work", "broken", "fails", "error", "crash", "incorrect", "wrong"]
+    # Note: "fix" is intentionally excluded — too ambiguous in issue titles ("Fix typo" = doc, not bug)
+    bug_kws = ["doesn't work", "broken", "fails", "error", "crash", "incorrect", "wrong",
+               "not working", "reverted", "revert"]
     if any("bug" in l for l in labels_lower) or any(kw in text for kw in bug_kws):
         return "bug", None
 
     # Priority 4: question — checked before deployment so "how do I deploy?" → question not deployment
-    question_kws = ["how do", "why does", "is it possible", "clarification", "how to", "what is"]
+    question_kws = ["how do", "why does", "is it possible", "clarification", "how to", "what is",
+                    "why is", "why are", "what if", "can we", "can i", "should i", "is there a way"]
     if any("question" in l for l in labels_lower) or any(kw in text for kw in question_kws):
         return "question", None
 
@@ -139,19 +142,22 @@ def classify_issue(issue):
         return "testing", None
 
     # Priority 7: feature — label or keyword (expanded)
+    # Note: standalone "add" is checked here as titles like "Add X feature" are almost always features
     feature_kws = ["add support", "implement", "would like", "feature request", "introduce",
-                   "allow", "enable", "support", "integrate", "should be able"]
+                   "allow", "enable", "support", "integrate", "should be able",
+                   "add ", "create ", "new ", "build ", "propose"]
     if any("enhancement" in l for l in labels_lower) or any(kw in text for kw in feature_kws):
         return "feature", None
 
-    # Priority 7: maintenance — version bumps, upgrades, removal, cleanup
-    maintenance_kws = ["upgrade", "update to", "bump", "deprecate", "remove", "clean up",
-                       "chore", "rename", "migrate to", "upgrade to"]
+    # Priority 8: maintenance — version bumps, upgrades, removal, cleanup
+    maintenance_kws = ["upgrade", "update to", "bump", "deprecate", "remove ", "clean up",
+                       "chore", "rename", "migrate to", "upgrade to",
+                       "refactor", "cleanup", "reorganize"]
     if any(kw in text for kw in maintenance_kws):
         return "maintenance", None
 
     # Priority 9: documentation — label or keyword
-    doc_kws = ["readme", "docs", "comment", "typo", "spelling"]
+    doc_kws = ["readme", "docs", "comment", "typo", "spelling", "document", "license", "changelog"]
     if any("doc" in l for l in labels_lower) or any(kw in text for kw in doc_kws):
         return "documentation", None
 
@@ -170,10 +176,12 @@ def _classify_fix_type(message):
         ("bug_fix",        ["fix", "bug", "resolve", "correct", "repair", "closes", "resolves"]),
         ("test",           ["test", "spec", "coverage", "assert", "unit test"]),
         ("refactor",       ["refactor", "clean up", "restructure", "rename", "simplify", "reorganize",
-                            "remove", "delete", "clean"]),
-        ("feature",        ["add", "implement", "support", "introduce", "new feature", "feat:"]),
-        ("docs",           ["docs", "readme", "comment", "changelog", "documentation"]),
-        ("maintenance",    ["chore", "upgrade", "bump", "update", "version", "deprecate"]),
+                            "remove", "delete", "clean", "lint", "format", "style"]),
+        ("feature",        ["add", "implement", "support", "introduce", "new feature", "feat:",
+                            "create", "build", "initial commit", "initial implementation"]),
+        ("docs",           ["docs", "readme", "comment", "changelog", "documentation", "license"]),
+        ("maintenance",    ["chore", "upgrade", "bump", "update", "version", "deprecate",
+                            "change", "modify", "wip", "work in progress"]),
     ]
     for fix_type, keywords in rules:
         if any(kw in text for kw in keywords):
